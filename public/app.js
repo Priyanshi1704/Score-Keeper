@@ -1,13 +1,15 @@
+// const { response } = require("express");
 
+let ws = io();
 let clientId = null;
 
 let winningScore = 5;
 let gameOver = false;
 
-let ws = new WebSocket("ws://localhost:9090");
+// let ws = new WebSocket("ws://localhost:9090");
 
-ws.onmessage = message => {
-    const response = JSON.parse(message.data);
+ws.on("message", response => {
+    // const response = JSON.parse(message.data);
     console.log(response);
 
     if (response.method === "connect") {
@@ -38,7 +40,7 @@ ws.onmessage = message => {
         p1.button.disabled = true;
         p2.button.disabled = true;
     }
-}
+});
 
 const p1 = {
     score: 0,

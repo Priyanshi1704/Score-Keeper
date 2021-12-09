@@ -1,8 +1,16 @@
-const http = require("http");
-const websocketServer = require("websocket").server;
 const express = require("express");
+var app = express();
 const path = require("path");
-const app = express();
+var http = require('http').Server(app);
+const port = process.env.PORT || 3000;
+
+var io = require('socket.io')(http);
+
+// const http = require("http");
+// const websocketServer = require("websocket").server;
+// const express = require("express");
+// const path = require("path");
+// const app = express();
 
 const staticPath = path.join(__dirname, "../public");
 
@@ -17,30 +25,32 @@ app.get("/javascript", (req, res) => {
 });
 
 app.get("/css", (req, res) => {
-    res.sendFile(__dirname + "/public/style/app.css");
+    res.sendFile(__dirname + "/public/style/style.css");
 });
 
-app.listen(9091, () => console.log("listening to port 9091"));
+// app.listen(9091, () => console.log("listening to port 9091"));
 
 
-const httpServer = http.createServer();
-httpServer.listen(9090, () => {
-    console.log("server listening to port 9090");
+// const httpServer = http.createServer();
+http.listen(port, () => {
+    console.log("server listening to port ", port);
 });
 
-const wsServer = new websocketServer({
-    "httpServer": httpServer
-});
+// const wsServer = new websocketServer({
+//     "httpServer": httpServer
+// });
 
 const clients = {};
 
-wsServer.on("request", request => {
-    const connection = request.accept(null, request.origin);
-    connection.on("open", () => console.log("connection opened"));
-    connection.on("close", () => console.log("connection closed"));
+io.on("connection", connection => {
+    console.log("A user connected");
+    // const connection = request.accept(null, request.origin);
+    // connection.on("open", () => console.log("connection opened"));
+    // connection.on("close", () => console.log("connection closed"));
+    connection.on("disconnect", ()=> console.log("A user disconnected"));
     connection.on("message", message => {
-        console.log(message);
-        const result = JSON.parse(message.utf8Data);
+
+        const result = JSON.parse(message);
         
         console.log(result);
 
@@ -52,7 +62,7 @@ wsServer.on("request", request => {
             }
 
            for(const c of Object.keys(clients)){
-               clients[c].connection.send(JSON.stringify(payload));
+               clients[c].connection.emit("message", payload);
            }
         }
 
@@ -63,7 +73,7 @@ wsServer.on("request", request => {
             }
 
             for(const c of Object.keys(clients)){
-                clients[c].connection.send(JSON.stringify(payload));
+                clients[c].connection.emit("message", payload);
             }
         }
 
@@ -75,7 +85,7 @@ wsServer.on("request", request => {
             }
 
             for(const c of Object.keys(clients)){
-                clients[c].connection.send(JSON.stringify(payload));
+                clients[c].connection.emit("message", payload);
             }
         }
 
@@ -86,7 +96,7 @@ wsServer.on("request", request => {
             }
 
             for(const c of Object.keys(clients)){
-                clients[c].connection.send(JSON.stringify(payload));
+                clients[c].connection.emit("message", payload);
             }
         }
 
@@ -105,7 +115,7 @@ wsServer.on("request", request => {
         "clientId": clientId
     }
 
-    connection.send(JSON.stringify(payload));
+    connection.emit("message", payload);
 });
 
 
