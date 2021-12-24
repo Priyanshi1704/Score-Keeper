@@ -3,10 +3,46 @@
 let ws = io();
 let clientId = null;
 
-let winningScore = 5;
-let gameOver = false;
+let winningScore = 3;
+let gameOver = true;
+let players = ["Player1", "Player2"];
+let p1Name = document.getElementById("p1Name");
+let p2Name = document.getElementById("p2Name");
+let roomName = null;
 
 // let ws = new WebSocket("ws://localhost:9090");
+
+ws.on('connect', function() {
+    console.log("connected to server");
+
+    let substr = window.location.search.substring(1);
+    let paras = JSON.parse('{"' + decodeURI(substr).replace(/"/g, '\\"').replace(/&/g, '","').replace(/=/g,'":"') + '"}')
+    roomName = paras.roomName;
+
+    ws.emit("join", paras, function(err) {
+        if(err){
+            alert(err);
+            window.location.href = "/";
+        }
+        else{
+            console.log("successfully logged in");
+        }
+    });
+});
+
+ws.on('updateUserList', ulist => {
+    console.log(ulist);
+
+    p1Name.textContent = ulist[0];
+    if(ulist.length >= 2){
+        p2Name.textContent = ulist[1];
+        gameOver = false;
+    }
+    else{
+        p2Name.textContent = "Player2";
+        gameOver = true;
+    }
+});
 
 ws.on("message", response => {
     // const response = JSON.parse(message.data);
@@ -64,7 +100,8 @@ function updateScores(player, opponent) {
             player.score += 1;
             if (player.score === winningScore) {
                 const payload = {
-                    "method": "over"
+                    "method": "over",
+                    "room": roomName
                 }
 
                 ws.send(JSON.stringify(payload));
@@ -81,7 +118,8 @@ function updateScores(player, opponent) {
 p1.button.addEventListener('click', function () {
     const payload = {
         "method": "play",
-        "player": "p1"
+        "player": "p1",
+        "room" : roomName
     }
 
     ws.send(JSON.stringify(payload));
@@ -91,7 +129,8 @@ p1.button.addEventListener('click', function () {
 p2.button.addEventListener('click', function () {
     const payload = {
         "method": "play",
-        "player": "p2"
+        "player": "p2",
+        "room" : roomName
     }
 
     ws.send(JSON.stringify(payload));
@@ -100,7 +139,8 @@ p2.button.addEventListener('click', function () {
 winningScoreSelector.addEventListener('change', function () {
     const payload = {
         "method": "changeScore",
-        "value": parseInt(this.value)
+        "value": parseInt(this.value),
+        "room": roomName
     }
 
     ws.send(JSON.stringify(payload));
@@ -109,7 +149,8 @@ winningScoreSelector.addEventListener('change', function () {
 })
 resetBtn.addEventListener('click', function () {
     const payload = {
-        "method": "reset"
+        "method": "reset",
+        "room": roomName
     }
     ws.send(JSON.stringify(payload));
 });

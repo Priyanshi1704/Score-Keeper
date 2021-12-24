@@ -1,4 +1,5 @@
 const express = require("express");
+const { param } = require("express/lib/request");
 var app = express();
 const path = require("path");
 var http = require('http').Server(app);
@@ -6,13 +7,7 @@ const port = process.env.PORT || 3000;
 
 var io = require('socket.io')(http);
 
-// const http = require("http");
-// const websocketServer = require("websocket").server;
-// const express = require("express");
-// const path = require("path");
-// const app = express();
-
-const staticPath = path.join(__dirname, "../public");
+const staticPath = path.join(__dirname, "/public");
 
 app.use(express.static(staticPath));
 
@@ -20,34 +15,50 @@ app.get("/", (req, res) => {
     res.sendFile(__dirname + "/public/index.html");
 });
 
-app.get("/javascript", (req, res) => {
-    res.sendFile(__dirname + "/public/app.js");
-});
-
-app.get("/css", (req, res) => {
-    res.sendFile(__dirname + "/public/style/style.css");
-});
-
-// app.listen(9091, () => console.log("listening to port 9091"));
-
-
-// const httpServer = http.createServer();
 http.listen(port, () => {
     console.log("server listening to port ", port);
 });
 
-// const wsServer = new websocketServer({
-//     "httpServer": httpServer
-// });
+const {User} = require("./utils/users");
+const { isRealString } = require("./utils/isRealString");
 
-const clients = {};
+let users = new User();
 
 io.on("connection", connection => {
     console.log("A user connected");
-    // const connection = request.accept(null, request.origin);
-    // connection.on("open", () => console.log("connection opened"));
-    // connection.on("close", () => console.log("connection closed"));
-    connection.on("disconnect", ()=> console.log("A user disconnected"));
+
+    connection.on('disconnect', () => {
+        let user = users.removeUser(connection.id);
+
+        if(user){
+            console.log(`${user.name} get disconnected from ${user.room}`);
+
+            io.to(user.room).emit('updateUserList', users.getUserList(user.room));
+        }
+    });
+
+    connection.on("join", (params, callBack) => {
+        if(!isRealString(params.displayName) || !isRealString(params.roomName))
+        {
+            callBack("Input fields are invalid")
+        }
+        else if(users.getUserList(params.roomName).length >= 2)
+        {
+            callBack("Maximum player limit reached");
+        }
+        else{
+            connection.join(params.roomName);
+
+            users.removeUser(connection.id);
+
+            users.addUser(connection.id, params.displayName, params.roomName);
+
+            io.to(params.roomName).emit('updateUserList', users.getUserList(params.roomName));
+
+            callBack();
+        }
+    })
+
     connection.on("message", message => {
 
         const result = JSON.parse(message);
@@ -61,9 +72,7 @@ io.on("connection", connection => {
                 "player": result.player
             }
 
-           for(const c of Object.keys(clients)){
-               clients[c].connection.emit("message", payload);
-           }
+           io.to(result.room).emit("message", payload);
         }
 
         if(result.method === "reset")
@@ -72,9 +81,11 @@ io.on("connection", connection => {
                 "method": "reset"
             }
 
-            for(const c of Object.keys(clients)){
-                clients[c].connection.emit("message", payload);
-            }
+            io.to(result.room).emit("message", payload);
+
+            // for(const c of Object.keys(clients)){
+            //     clients[c].connection.emit("message", payload);
+            // }
         }
 
         if(result.method === "changeScore")
@@ -84,9 +95,7 @@ io.on("connection", connection => {
                 "value": result.value
             }
 
-            for(const c of Object.keys(clients)){
-                clients[c].connection.emit("message", payload);
-            }
+            io.to(result.room).emit("message", payload);
         }
 
         if(result.method === "over")
@@ -95,24 +104,14 @@ io.on("connection", connection => {
                 "method": "over"
             }
 
-            for(const c of Object.keys(clients)){
-                clients[c].connection.emit("message", payload);
-            }
+            io.to(result.room).emit("message", payload);
         }
 
     });
 
-    // creating a new client id
-    const clientId = guid();
-
-    // pushing new client
-    clients[clientId] = {
-        "connection": connection
-    }
-
     const payload = {
         "method": "connect",
-        "clientId": clientId
+        "clientId": connection.id
     }
 
     connection.emit("message", payload);
