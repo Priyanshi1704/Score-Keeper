@@ -42,6 +42,7 @@ ws.on('updateUserList', ulist => {
         p2Name.textContent = "Player2";
         gameOver = true;
     }
+    winningScore = 3;
 });
 
 ws.on("message", response => {
